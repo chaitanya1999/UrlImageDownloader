@@ -9,12 +9,15 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Scanner;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -27,6 +30,15 @@ import javax.swing.text.BadLocationException;
 import javax.swing.text.html.HTML;
 import javax.swing.text.html.HTMLDocument;
 import javax.swing.text.html.HTMLEditorKit;
+import org.openqa.selenium.By;
+import org.openqa.selenium.Capabilities;
+import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.Platform;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.phantomjs.PhantomJSDriver;
+import org.openqa.selenium.remote.CapabilityType;
+import org.openqa.selenium.remote.DesiredCapabilities;
 
 /**
  *
@@ -38,6 +50,10 @@ public class URLImageDownloader extends javax.swing.JFrame {
     final JTextArea lbl;
     File lastImage = null;
     String str1234="";
+    WebDriver driver = null;
+    SwingFXImageView img = new SwingFXImageView();
+    
+    
     Runnable r_downloader = new Runnable(){
             @Override
             public void run(){
@@ -67,7 +83,11 @@ public class URLImageDownloader extends javax.swing.JFrame {
                     try {
                         URL url = new URL(strUrl);
                         URLConnection urlC = url.openConnection();
-                        urlC.addRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:25.0) Gecko/20100101 Firefox/25.0");
+//                        if (System.getProperty("os.name").startsWith("Windows")) {
+//                            urlC.addRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:25.0) Gecko/20100101 Firefox/25.0");
+//                        } else if (System.getProperty("os.name").startsWith("Linux")) {
+//                            urlC.addRequestProperty("User-Agent", "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:57.0) Gecko/20100101 Firefox/57.0");
+//                        }
                         is = urlC.getInputStream();
 
                         HTMLEditorKit hk = new HTMLEditorKit();
@@ -97,7 +117,11 @@ public class URLImageDownloader extends javax.swing.JFrame {
                                     }
                                     URL iUrl = new URL(imgSrc);
                                     URLConnection iUrlC = iUrl.openConnection();
-                                    iUrlC.addRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:25.0) Gecko/20100101 Firefox/25.0");
+//                                    if (System.getProperty("os.name").startsWith("Windows")) {
+//                                        iUrlC.addRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:25.0) Gecko/20100101 Firefox/25.0");
+//                                    } else if (System.getProperty("os.name").startsWith("Linux")) {
+//                                        iUrlC.addRequestProperty("User-Agent", "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:57.0) Gecko/20100101 Firefox/57.0");
+//                                    }
                                     InputStream istr = iUrlC.getInputStream();
                                     if (istr != null) {
                                         File ffff = new File("./Images/"+ folderName + "/" + imgSrc.substring(imgSrc.lastIndexOf('/') + 1, imgSrc.length()));
@@ -143,8 +167,63 @@ public class URLImageDownloader extends javax.swing.JFrame {
             }
             
         };
-    SwingFXImageView img = new SwingFXImageView();
+    
+    Runnable r2 = new Runnable(){
+        @Override
+        public void run(){
+            long count=0;
+                Scanner sc = new Scanner(urls.getText());
+                str1234="";
+                while (sc.hasNext() && downloading) {
+                    status.setBackground(Color.YELLOW);
+                    status.setText("Loading  ");
+                    String url = sc.next();
+                    driver.get(url);
+                    ((JavascriptExecutor)driver).executeScript("window.scrollTo(0, document.body.scrollHeight)");
+                    System.out.println("# " + driver.getTitle());
+                    ArrayList<WebElement> list = new ArrayList<>(driver.findElements(By.tagName("img")));
+                    int ind=0;
+                    while(downloading && ind<list.size()){
+                        status.setText("Downloading  "+ind+" | "+list.size());
+                        try {
+                            img.imageview.setImage(new javafx.scene.image.Image(new FileInputStream(lastImage)));
+                        } catch (FileNotFoundException|NullPointerException ex) {}
+                        String src = list.get(ind).getAttribute("src");
+                        if(src==null || src.isEmpty()){}
+                        else try {
+                            System.out.println("image found " + src);
+                            File file = new File("./Images/"+src.substring(src.lastIndexOf('/')));
+                            lastImage=file;
+                            URL u = new URL(src);
+                            Files.copy(u.openStream(), Paths.get(file.getAbsolutePath()));
+                        } catch (MalformedURLException ex) {
+                        } catch (IOException ex) {
+                        } 
+                        ind++;count++;
+                    }
+                    
+                }
+                lastImage=null;
+                if(downloading){
+                    status.setBackground(Color.GREEN);
+                    status.setText("Finished | " + count + " files downloaded");
+                }
+//                preview.setIcon(null);
+                downloading = false;
+                if(str1234.isEmpty())str1234="  ";
+                lbl.setText(str1234.substring(1));
+        }
+    };
     public URLImageDownloader() {
+        System.setProperty("phantomjs.binary.path", new File("./phantomjs.exe").getAbsolutePath());
+        DesiredCapabilities cap = new DesiredCapabilities();
+        cap.setCapability(CapabilityType.ELEMENT_SCROLL_BEHAVIOR, true);
+//        cap.setCapability(CapabilityType.TAKES_SCREENSHOT, true);
+//        cap.setCapability(CapabilityType.ENABLE_PROFILING_CAPABILITY, true);
+//        cap.setCapability(CapabilityType.HAS_NATIVE_EVENTS, true);
+        cap.setCapability(CapabilityType.SUPPORTS_JAVASCRIPT, true);
+        driver = new PhantomJSDriver(cap);
+                    
         initComponents();
         lbl=list;
         previewOuterPanel.add(img);
@@ -332,7 +411,7 @@ public class URLImageDownloader extends javax.swing.JFrame {
     private void jButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2ActionPerformed
         if(!downloading){
             downloading = true;
-            downloader = new Thread(r_downloader);
+            downloader = new Thread(r2);
             downloader.start();
         }
     }//GEN-LAST:event_jButton2ActionPerformed
@@ -371,6 +450,7 @@ public class URLImageDownloader extends javax.swing.JFrame {
      */
     public static void main(String args[]) {
         try {
+            System.setProperty("http.agent","Mozilla");
             /* Set the Nimbus look and feel */
             //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
             /* If Nimbus (introduced in Java SE 6) is not available, stay with the default look and feel.
