@@ -7,6 +7,7 @@ package urlimagedownloader;
 
 import java.awt.Color;
 import java.awt.Dimension;
+import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -18,6 +19,7 @@ import java.net.URLConnection;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Scanner;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -180,27 +182,86 @@ public class URLImageDownloader extends javax.swing.JFrame {
                     String url = sc.next();
                     driver.get(url);
                     ((JavascriptExecutor)driver).executeScript("window.scrollTo(0, document.body.scrollHeight)");
+                try {
+                    Thread.sleep(5000);
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(URLImageDownloader.class.getName()).log(Level.SEVERE, null, ex);
+                }
                     System.out.println("# " + driver.getTitle());
+                
                     ArrayList<WebElement> list = new ArrayList<>(driver.findElements(By.tagName("img")));
                     int ind=0;
                     while(downloading && ind<list.size()){
                         status.setText("Downloading  "+ind+" | "+list.size());
+                        String src="";
                         try {
+                            src = list.get(ind).getAttribute("src");
                             img.imageview.setImage(new javafx.scene.image.Image(new FileInputStream(lastImage)));
-                        } catch (FileNotFoundException|NullPointerException ex) {}
-                        String src = list.get(ind).getAttribute("src");
-                        if(src==null || src.isEmpty()){}
+                        } catch (Exception ex) {}
+                        if(src==null || src.isEmpty()){System.out.println("Empty");}
                         else try {
                             System.out.println("image found " + src);
-                            File file = new File("./Images/"+src.substring(src.lastIndexOf('/')));
-                            lastImage=file;
-                            URL u = new URL(src);
-                            Files.copy(u.openStream(), Paths.get(file.getAbsolutePath()));
+                            if(src.contains("base64")){
+                                
+                            } else {
+                                File file = new File("./Images/" + src.substring(src.lastIndexOf('/'), (src.lastIndexOf('?') >= 0) ? src.lastIndexOf('?') : src.length()));
+                                lastImage = file;
+                                URL u = new URL(src);
+                                Files.copy(u.openStream(), Paths.get(file.getAbsolutePath()));
+                            }
                         } catch (MalformedURLException ex) {
                         } catch (IOException ex) {
                         } 
                         ind++;count++;
                     }
+                    
+                    
+                    
+                    ArrayList<WebElement> list2 = new ArrayList<>(driver.findElements(By.tagName("source")));
+                    ArrayList<WebElement> list3 = new ArrayList<>(driver.findElements(By.tagName("video")));
+                    int ind2=0,ind3=0;
+                    while(downloading && ind2<list2.size()){
+                        status.setText("Downloading  Videos "+(ind3+ind2)+" | "+(list2.size()+list3.size()));
+                        
+//                            img.imageview.setImage(new javafx.scene.image.Image(new FileInputStream(lastImage)));
+                        
+                        String src = list2.get(ind2).getAttribute("src");
+                        if(src==null || src.isEmpty()){}
+                        else try {
+                            System.out.println("video found " + src);
+                                File file = new File("./Images/" + src.substring(src.lastIndexOf('/'), (src.lastIndexOf('?') >= 0) ? src.lastIndexOf('?') : src.length()));
+//                                lastImage = file;
+                                URL u = new URL(src);
+                                Files.copy(u.openStream(), Paths.get(file.getAbsolutePath()));
+                            
+                        } catch (MalformedURLException ex) {
+                        } catch (IOException ex) {
+                        } 
+                        ind2++;count++;
+                    }
+                    
+                    
+                    while(downloading && ind3<list3.size()){
+                        status.setText("Downloading  Videos "+(ind3+ind2)+" | "+(list2.size()+list3.size()));
+                        
+//                            img.imageview.setImage(new javafx.scene.image.Image(new FileInputStream(lastImage)));
+                        
+                        String src = list3.get(ind3).getAttribute("data-mp4");
+                        if(src==null || src.isEmpty()){}
+                        else try {
+                            System.out.println("video found " + src);
+                                File file = new File("./Images/" + src.substring(src.lastIndexOf('/'), (src.lastIndexOf('?') >= 0) ? src.lastIndexOf('?') : src.length()));
+//                                lastImage = file;
+                                URL u = new URL(src);
+                                Files.copy(u.openStream(), Paths.get(file.getAbsolutePath()));
+                            
+                        } catch (MalformedURLException ex) {
+                        } catch (IOException ex) {
+                        } 
+                        ind3++;count++;
+                    }
+                    
+                    
                     
                 }
                 lastImage=null;
@@ -255,6 +316,11 @@ public class URLImageDownloader extends javax.swing.JFrame {
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setTitle("UrlImageDownloader");
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            public void windowClosing(java.awt.event.WindowEvent evt) {
+                formWindowClosing(evt);
+            }
+        });
 
         status.setBackground(new java.awt.Color(0, 255, 0));
         status.setFont(new java.awt.Font("Calibri", 0, 14)); // NOI18N
@@ -444,6 +510,11 @@ public class URLImageDownloader extends javax.swing.JFrame {
             JOptionPane.showMessageDialog(this, "Error: Cannot show files.\nException: "+ex);
         }
     }//GEN-LAST:event_btnShowFilesActionPerformed
+
+    private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
+        driver.quit();
+        System.out.println("QUITTING");
+    }//GEN-LAST:event_formWindowClosing
 
     /**
      * @param args the command line arguments
